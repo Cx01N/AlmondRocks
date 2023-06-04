@@ -18,7 +18,7 @@ MTYPE_DATA = 0x10   # Data messages
 
 
 def recvall(s, size):
-    data = ''
+    data = b''
     while len(data) < size:
         d = s.recv(size - len(data))
         if not d:
@@ -51,7 +51,7 @@ class Message(object):
             raise ValueError('Attempting to unpack a Message header from too little data')
         return Message(*cls.M_HDR_STRUCT.unpack(data[:cls.M_HDR_STRUCT.size])), data[cls.M_HDR_STRUCT.size:]
 
-    def pack(self, data=''):
+    def pack(self, data=b''):
         self.size = len(data)
         return self.M_HDR_STRUCT.pack(self.mtype, self.channel, self.size) + data
 
@@ -94,9 +94,11 @@ class Tunnel(object):
         self.transport_socket = transport_socket  # type: socket.socket
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def send_message(self, msg, data=''):
+    def send_message(self, msg, data=b''):
         self.logger.debug('Sending {}'.format(msg))
         try:
+            if isinstance(data, str):
+                data = data.encode("utf-8")
             self.transport_socket.sendall(msg.pack(data))
         except (socket.error, TypeError) as e:
             self.logger.critical('Problem sending a message over transport: {}'.format(e))
@@ -327,7 +329,7 @@ class SocksBase(object):
             if self.socks_socket is not None and self.socks_socket in r:
                 s, addr = self.socks_socket.accept()
                 addr = '{}:{}'.format(*addr)
-                c = self.tunnel.open_channel(self.next_channel_id.next(), remote=True)
+                c = self.tunnel.open_channel(next(self.next_channel_id), remote=True)
                 c.local_peer_addr = addr
                 c.socket = s
                 self.logger.info('Created new channel: {}'.format(c))
